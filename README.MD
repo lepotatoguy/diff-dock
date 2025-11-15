@@ -1,7 +1,9 @@
 Pipeline:
 
 ```
-Install anaconda first. Then: 
+Install anaconda and git first. Then: 
+
+git clone https://github.com/lepotatoguy/diff-dock.git
 
 conda env create -f environment.yml
 conda activate diffdock
@@ -22,6 +24,6 @@ conda activate diffdock
 ```
 
 ## Notes
-# - Some ligands will be skipped because of invalid valence or corrupted SDF/MOL2 files.
-# - This is expected in PDBBind raw dumps.
-# - Your dataset is now ready for model training.
+- Some ligands will be skipped because of invalid valence or corrupted SDF/MOL2 files.
+- This is expected in PDBBind raw dumps.
+- Your dataset is now ready for model training.
