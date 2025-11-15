@@ -13,17 +13,12 @@ class DockingDataset(Dataset):
 
     def fix_pos(self, arr):
         arr = np.array(arr)
-
-        # remove singleton dimensions → now becomes (N, 3)
         arr = np.squeeze(arr)
 
-        # if shape becomes (3,), fix it to (1,3)
         if arr.ndim == 1:
             arr = arr.reshape(1, 3)
 
-        # ensure final shape is (N, 3)
         if arr.shape[-1] != 3:
-            # sometimes shape is (3, N) → transpose
             if arr.shape[0] == 3:
                 arr = arr.T
             else:
@@ -34,17 +29,8 @@ class DockingDataset(Dataset):
     def __getitem__(self, idx):
         pdbid = self.ids[idx]
 
-        # lig = np.load(os.path.join(self.root, "ligands", pdbid))
-        # poc = np.load(os.path.join(self.root, "pockets", pdbid))
-
-        lig_path = os.path.join(self.root, "ligands", pdbid)
-        poc_path = os.path.join(self.root, "pockets", pdbid)
-
-        lig = np.load(lig_path, allow_pickle=True).item()
-        poc = np.load(poc_path, allow_pickle=True).item()
-
-        # lig_pos = self.fix_pos(lig.item()["pos"])
-        # poc_pos = self.fix_pos(poc.item()["pos"])
+        lig = np.load(os.path.join(self.root, "ligands", pdbid), allow_pickle=True).item()
+        poc = np.load(os.path.join(self.root, "pockets", pdbid), allow_pickle=True).item()
 
         lig_pos = self.fix_pos(lig["pos"])
         poc_pos = self.fix_pos(poc["pos"])

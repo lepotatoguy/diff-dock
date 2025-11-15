@@ -11,10 +11,12 @@ class DiffusionWrapper(nn.Module):
         return x0 + noise * (t / self.timesteps)
 
     def loss(self, lig_pos, lig_type, poc_pos, poc_type):
+
         t = torch.randint(1, self.timesteps, (1,), device=lig_pos.device).float()
         noise = torch.randn_like(lig_pos)
 
         x_t = self.q_sample(lig_pos, t, noise)
-        pred_noise = self.model(x_t, lig_type, poc_pos, poc_type)
+
+        pred_noise = self.model(x_t, lig_type, poc_pos, poc_type, t)
 
         return ((noise - pred_noise)**2).mean()
