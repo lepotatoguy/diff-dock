@@ -1,53 +1,28 @@
-# import torch
-# import torch.nn as nn
-# from e3nn.o3 import FullyConnectedTensorProduct, Irreps
-
-# class SE3Block(nn.Module):
-#     def __init__(self, in_channels=16, out_channels=16):
-#         super().__init__()
-#         self.tp = FullyConnectedTensorProduct(
-#             Irreps(f"{in_channels}x0e"),
-#             Irreps(f"{in_channels}x0e"),
-#             Irreps(f"{out_channels}x0e")
-#         )
-#         self.lin = nn.Linear(in_channels, out_channels)
-
-#     def forward(self, x, context):
-#         # x: (N_lig, C), context: (N_pocket, C)
-#         # simplified interaction: mean over pocket features
-#         ctx = context.mean(0, keepdim=True)
-#         t = self.tp(x.unsqueeze(0), ctx.unsqueeze(0))[0]
-#         return self.lin(t)
-
-
 import torch
 import torch.nn as nn
-from e3nn.o3 import FullyConnectedTensorProduct, Irreps
 
-class SE3Block(nn.Module):
-    def __init__(self, in_channels=16, out_channels=3):
+class SimpleGeomNet(nn.Module):
+    def __init__(self, hidden_dim=32):
         super().__init__()
+        self.emb_lig = nn.Embedding(100, hidden_dim)
+        self.emb_poc = nn.Embedding(100, hidden_dim)
 
-        self.tp = FullyConnectedTensorProduct(
-            Irreps(f"{in_channels}x0e"),
-            Irreps(f"{in_channels}x0e"),
-            Irreps(f"{in_channels}x0e")       # TP → 16 dims
+        self.mlp = nn.Sequential(
+            nn.Linear(hidden_dim*2 + 3, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 3)
         )
 
-        self.lin = nn.Linear(in_channels, out_channels)  # → 3 coordinates
+    def forward(self, lig_pos, lig_type, poc_pos, poc_type):
+        lig_f = self.emb_lig(lig_type)     # (N_lig,H)
 
-    def forward(self, x_feat, ctx_feat):
-        if x_feat.dim() == 3:
-            x_feat = x_feat.squeeze(0)
-        if ctx_feat.dim() == 3:
-            ctx_feat = ctx_feat.squeeze(0)
+        poc_f = self.emb_poc(poc_type)     # (N_poc,H)
+        poc_f = poc_f.mean(dim=0)          # (H,)
+        poc_f = poc_f.unsqueeze(0)         # (1,H)
+        poc_f = poc_f.expand(lig_f.size(0), -1)  # (N_lig,H)
 
-        ctx = ctx_feat.mean(0, keepdim=True)
-        ctx_rep = ctx.expand(x_feat.shape[0], -1)
+        x = torch.cat([lig_f, poc_f, lig_pos], dim=-1)
 
-        x_tp = x_feat.unsqueeze(0)
-        ctx_tp = ctx_rep.unsqueeze(0)
-
-        t = self.tp(x_tp, ctx_tp)[0]     # (N, 16)
-
-        return self.lin(t)               # (N, 3)
+        return self.mlp(x)

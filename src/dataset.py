@@ -1,25 +1,60 @@
-import numpy as np
-from torch.utils.data import Dataset
-import torch
 import os
+import numpy as np
+import torch
+from torch.utils.data import Dataset
 
 class DockingDataset(Dataset):
     def __init__(self, root):
         self.root = root
-        self.ids = [x.split(".")[0] for x in os.listdir(root + "/ligands")]
+        self.ids = sorted(os.listdir(os.path.join(root, "ligands")))
 
     def __len__(self):
         return len(self.ids)
 
+    def fix_pos(self, arr):
+        arr = np.array(arr)
+
+        # remove singleton dimensions → now becomes (N, 3)
+        arr = np.squeeze(arr)
+
+        # if shape becomes (3,), fix it to (1,3)
+        if arr.ndim == 1:
+            arr = arr.reshape(1, 3)
+
+        # ensure final shape is (N, 3)
+        if arr.shape[-1] != 3:
+            # sometimes shape is (3, N) → transpose
+            if arr.shape[0] == 3:
+                arr = arr.T
+            else:
+                raise RuntimeError("Invalid coordinate shape")
+
+        return arr.astype(np.float32)
+
     def __getitem__(self, idx):
-        key = self.ids[idx]
-        lig = np.load(f"{self.root}/ligands/{key}.npy", allow_pickle=True).item()
-        poc = np.load(f"{self.root}/pockets/{key}.npy", allow_pickle=True).item()
+        pdbid = self.ids[idx]
 
-        lig_pos = torch.tensor(lig["pos"], dtype=torch.float32)
-        lig_type = torch.tensor(lig["atom_type"], dtype=torch.long)
+        # lig = np.load(os.path.join(self.root, "ligands", pdbid))
+        # poc = np.load(os.path.join(self.root, "pockets", pdbid))
 
-        poc_pos = torch.tensor(poc["pos"], dtype=torch.float32)
-        poc_type = torch.tensor(poc["atom_type"], dtype=torch.long)
+        lig_path = os.path.join(self.root, "ligands", pdbid)
+        poc_path = os.path.join(self.root, "pockets", pdbid)
 
-        return lig_pos, lig_type, poc_pos, poc_type
+        lig = np.load(lig_path, allow_pickle=True).item()
+        poc = np.load(poc_path, allow_pickle=True).item()
+
+        # lig_pos = self.fix_pos(lig.item()["pos"])
+        # poc_pos = self.fix_pos(poc.item()["pos"])
+
+        lig_pos = self.fix_pos(lig["pos"])
+        poc_pos = self.fix_pos(poc["pos"])
+
+        lig_type = lig["atom_type"].astype(np.int64)
+        poc_type = poc["atom_type"].astype(np.int64)
+
+        return (
+            torch.tensor(lig_pos),
+            torch.tensor(lig_type),
+            torch.tensor(poc_pos),
+            torch.tensor(poc_type),
+        )
